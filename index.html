@@ -684,6 +684,7 @@ function startSession(){
 }
 
 function showHostCaseIntro(caseIdx){
+  hostCaseIdx = caseIdx;
   const c = CASES[caseIdx];
   document.getElementById('host-case-tag').textContent = c.tag;
   document.getElementById('host-case-tag').className = 'severity-tag ' + c.tagClass;
