@@ -1,0 +1,992 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Sim Asma · GINA 2026</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg-0:#0B2027;
+    --bg-1:#0F2A31;
+    --panel:#142E36;
+    --panel-2:#1A3841;
+    --line: rgba(232,241,239,0.12);
+    --teal:#3FA9A3;
+    --teal-soft: rgba(63,169,163,0.16);
+    --amber:#E0A458;
+    --amber-soft: rgba(224,164,88,0.16);
+    --red:#E4572E;
+    --red-soft: rgba(228,87,46,0.16);
+    --sage:#7FB77E;
+    --sage-soft: rgba(127,183,126,0.16);
+    --text-0:#EAF3F1;
+    --text-1: rgba(234,243,241,0.72);
+    --text-2: rgba(234,243,241,0.48);
+  }
+  *{box-sizing:border-box;}
+  html,body{height:100%;}
+  body{
+    margin:0;
+    background: radial-gradient(ellipse at top, var(--bg-1), var(--bg-0) 65%);
+    color:var(--text-0);
+    font-family:'IBM Plex Sans', sans-serif;
+    min-height:100vh;
+    display:flex;
+    flex-direction:column;
+    padding-top: env(safe-area-inset-top, 0px);
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+  h1,h2,h3,.display{ font-family:'Space Grotesk', sans-serif; letter-spacing:-0.01em; margin:0; }
+  .mono{ font-family:'IBM Plex Mono', monospace; }
+  .screen{ flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; padding:32px 20px; position:relative; width:100%; max-width:920px; margin:0 auto; }
+  .hidden{ display:none !important; }
+
+  /* ambient ekg line */
+  .ekg-wrap{ position:fixed; left:0; right:0; bottom:0; height:60px; opacity:0.35; pointer-events:none; overflow:hidden; }
+  .ekg-wrap svg{ width:200%; height:100%; animation: scroll-ekg 6s linear infinite; }
+  @keyframes scroll-ekg{ from{ transform:translateX(0); } to{ transform:translateX(-50%); } }
+  @media (prefers-reduced-motion: reduce){ .ekg-wrap svg{ animation:none; } }
+
+  .eyebrow{ color:var(--teal); font-size:13px; font-weight:600; margin-bottom:6px; }
+  .title-xl{ font-size:clamp(28px,5vw,44px); font-weight:700; line-height:1.05; }
+  .subtitle{ color:var(--text-1); font-size:16px; margin-top:10px; max-width:520px; text-align:center; line-height:1.5; }
+
+  .btn{
+    appearance:none; border:none; cursor:pointer; border-radius:14px;
+    font-family:'IBM Plex Sans', sans-serif; font-weight:600; font-size:16px;
+    padding:16px 24px; color:var(--bg-0); background:var(--teal);
+    transition: transform .12s ease, box-shadow .12s ease, background .12s ease;
+  }
+  .btn:hover{ transform: translateY(-1px); box-shadow:0 8px 20px rgba(63,169,163,0.25); }
+  .btn:active{ transform: translateY(0px) scale(.99); }
+  .btn.secondary{ background:transparent; color:var(--text-0); border:1px solid var(--line); }
+  .btn.secondary:hover{ box-shadow:none; background:var(--panel-2); }
+  .btn.wide{ width:100%; }
+  .btn:disabled{ opacity:.4; cursor:not-allowed; transform:none; box-shadow:none; }
+
+  .card{ background:var(--panel); border:1px solid var(--line); border-radius:18px; padding:28px; width:100%; }
+  .stack{ display:flex; flex-direction:column; gap:14px; width:100%; }
+  .row{ display:flex; gap:12px; }
+
+  input[type=text]{
+    background:var(--panel-2); border:1px solid var(--line); border-radius:12px;
+    color:var(--text-0); font-family:'IBM Plex Mono', monospace; font-size:20px;
+    padding:14px 16px; width:100%; letter-spacing:0.08em; text-transform:uppercase;
+  }
+  input[type=text]::placeholder{ color:var(--text-2); text-transform:none; letter-spacing:normal; }
+  input[type=text]:focus{ outline:2px solid var(--teal); }
+
+  .room-code{ font-family:'IBM Plex Mono', monospace; font-size:clamp(40px,10vw,64px); font-weight:600; letter-spacing:0.12em; color:var(--teal); }
+
+  /* vitals monitor */
+  .vitals{ display:grid; grid-template-columns: repeat(auto-fit,minmax(110px,1fr)); gap:10px; width:100%; margin:18px 0; }
+  .vital{ background:var(--panel-2); border:1px solid var(--line); border-radius:12px; padding:12px 14px; }
+  .vital .label{ font-size:11px; color:var(--text-2); text-transform:uppercase; letter-spacing:0.08em; }
+  .vital .value{ font-family:'IBM Plex Mono', monospace; font-size:22px; font-weight:600; margin-top:4px; }
+  .vital.flag .value{ color:var(--red); }
+
+  .severity-tag{ display:inline-flex; align-items:center; gap:8px; padding:6px 14px; border-radius:999px; font-size:13px; font-weight:600; }
+  .sev-leve{ background:var(--sage-soft); color:var(--sage); }
+  .sev-moderada{ background:var(--amber-soft); color:var(--amber); }
+  .sev-severa{ background:var(--red-soft); color:var(--red); }
+  .sev-ambulatorio{ background:var(--teal-soft); color:var(--teal); }
+
+  .vignette{ color:var(--text-1); line-height:1.6; font-size:15px; margin-top:14px; }
+
+  .timer-bar{ width:100%; height:8px; background:var(--panel-2); border-radius:999px; overflow:hidden; margin:18px 0 8px; }
+  .timer-fill{ height:100%; background:var(--teal); border-radius:999px; transition: width 0.2s linear; }
+  .timer-fill.warn{ background:var(--amber); }
+  .timer-fill.crit{ background:var(--red); }
+
+  .question-text{ font-size:clamp(18px,3vw,24px); font-weight:600; line-height:1.35; margin:10px 0 22px; }
+
+  .options-grid{ display:grid; grid-template-columns: 1fr 1fr; gap:12px; width:100%; }
+  @media (max-width:560px){ .options-grid{ grid-template-columns: 1fr; } }
+  .option-btn{
+    text-align:left; padding:18px 18px; border-radius:14px; border:1px solid var(--line);
+    background:var(--panel-2); color:var(--text-0); font-size:15px; font-weight:500; cursor:pointer;
+    display:flex; gap:12px; align-items:flex-start; transition: all .12s ease;
+  }
+  .option-btn .key{ font-family:'IBM Plex Mono', monospace; color:var(--teal); font-weight:600; flex-shrink:0; }
+  .option-btn:hover{ border-color:var(--teal); }
+  .option-btn.selected{ border-color:var(--teal); background:var(--teal-soft); }
+  .option-btn.correct{ border-color:var(--sage); background:var(--sage-soft); }
+  .option-btn.incorrect{ border-color:var(--red); background:var(--red-soft); }
+  .option-btn:disabled{ cursor:default; }
+
+  .explanation{ background:var(--panel-2); border-left:3px solid var(--teal); border-radius:8px; padding:16px 18px; margin-top:18px; font-size:14.5px; line-height:1.6; color:var(--text-1); }
+  .explanation b{ color:var(--text-0); }
+
+  .leader-list{ width:100%; display:flex; flex-direction:column; gap:8px; margin-top:16px; }
+  .leader-row{ display:flex; align-items:center; gap:14px; background:var(--panel-2); border-radius:12px; padding:12px 16px; }
+  .leader-row .rank{ font-family:'IBM Plex Mono', monospace; color:var(--text-2); width:24px; }
+  .leader-row .name{ flex:1; font-weight:600; }
+  .leader-row .score{ font-family:'IBM Plex Mono', monospace; color:var(--teal); font-weight:600; }
+  .leader-row.top1{ border:1px solid var(--teal); }
+
+  .pill-row{ display:flex; flex-wrap:wrap; gap:8px; margin-top:16px; justify-content:center; }
+  .pill{ background:var(--panel-2); border:1px solid var(--line); border-radius:999px; padding:6px 14px; font-size:13px; color:var(--text-1); }
+
+  .waiting-dot{ display:inline-block; width:8px; height:8px; border-radius:50%; background:var(--teal); animation:pulse 1.2s ease-in-out infinite; margin-right:8px; }
+  @keyframes pulse{ 0%,100%{ opacity:0.3; } 50%{ opacity:1; } }
+
+  .topbar{ position:fixed; top:0; left:0; right:0; padding:14px 20px; padding-top: calc(14px + env(safe-area-inset-top,0px)); display:flex; justify-content:space-between; align-items:center; font-size:13px; color:var(--text-2); z-index:5; }
+  .topbar .code{ font-family:'IBM Plex Mono', monospace; color:var(--teal); }
+
+  .footnote{ color:var(--text-2); font-size:12px; text-align:center; margin-top:24px; max-width:480px; line-height:1.5; }
+  .score-badge{ position:fixed; top:14px; right:16px; top: calc(14px + env(safe-area-inset-top,0px)); background:var(--panel); border:1px solid var(--line); border-radius:999px; padding:8px 16px; font-family:'IBM Plex Mono', monospace; font-size:14px; color:var(--teal); z-index:5; }
+</style>
+</head>
+<body>
+
+<div class="ekg-wrap"><svg viewBox="0 0 600 60" preserveAspectRatio="none"><path d="M0 30 L60 30 L75 30 L85 8 L95 52 L105 30 L140 30 L155 30 L165 8 L175 52 L185 30 L220 30 L300 30 L315 30 L325 8 L335 52 L345 30 L380 30 L395 30 L405 8 L415 52 L425 30 L460 30 L600 30" fill="none" stroke="#3FA9A3" stroke-width="2"/></svg></div>
+
+<!-- ============ LANDING ============ -->
+<section id="view-landing" class="screen">
+  <div class="eyebrow">Simulación clínica · Guía GINA 2026</div>
+  <h1 class="title-xl">Manejo del asma pediátrica</h1>
+  <p class="subtitle">Casos de crisis asmática en urgencias y manejo ambulatorio escalonado, para niños de 6 a 11 años. Sesión en vivo, como un juego por equipos.</p>
+  <div class="stack" style="max-width:360px; margin-top:32px;">
+    <button class="btn wide" onclick="goTo('view-host-setup')">Soy el docente (host)</button>
+    <button class="btn secondary wide" onclick="goTo('view-student-join')">Soy estudiante</button>
+  </div>
+</section>
+
+<!-- ============ HOST: SETUP / CREATE ROOM ============ -->
+<section id="view-host-setup" class="screen hidden">
+  <div class="eyebrow">Modo docente</div>
+  <h2 class="title-xl">Crear una sesión</h2>
+  <p class="subtitle">Se generará un código de sala. Compártalo con los estudiantes para que se unan desde su celular.</p>
+  <button class="btn" style="margin-top:24px;" onclick="createRoom()">Generar sala</button>
+</section>
+
+<!-- ============ HOST: LOBBY ============ -->
+<section id="view-host-lobby" class="screen hidden">
+  <div class="eyebrow">Sala activa</div>
+  <div class="room-code mono" id="host-room-code">----</div>
+  <p class="subtitle">Estudiantes conectados</p>
+  <div class="stack" id="host-student-list" style="max-width:420px; margin-top:8px;"></div>
+  <div class="stack" style="max-width:420px; margin-top:28px;">
+    <button class="btn wide" id="btn-start-session" onclick="startSession()" disabled>Comenzar simulación</button>
+  </div>
+</section>
+
+<!-- ============ HOST: CASE INTRO ============ -->
+<section id="view-host-case-intro" class="screen hidden">
+  <span class="severity-tag" id="host-case-tag">—</span>
+  <h2 class="title-xl" id="host-case-title" style="margin-top:14px;">—</h2>
+  <div class="card" style="margin-top:20px;">
+    <div id="host-case-vitals" class="vitals"></div>
+    <p class="vignette" id="host-case-vignette"></p>
+  </div>
+  <button class="btn wide" style="max-width:360px; margin-top:24px;" onclick="advanceToQuestion()">Iniciar preguntas de este caso</button>
+</section>
+
+<!-- ============ HOST: QUESTION ============ -->
+<section id="view-host-question" class="screen hidden">
+  <div class="topbar"><span>Sala <span class="code" id="host-q-room"></span></span><span id="host-q-progress"></span></div>
+  <span class="severity-tag" id="host-q-tag">—</span>
+  <div class="question-text" id="host-q-text" style="text-align:center;"></div>
+  <div class="timer-bar"><div class="timer-fill" id="host-timer-fill"></div></div>
+  <p class="subtitle" id="host-q-answered-count"><span class="waiting-dot"></span>Esperando respuestas…</p>
+  <div class="row" style="margin-top:20px; gap:12px;">
+    <button class="btn secondary" onclick="revealAnswer()">Revelar respuesta</button>
+  </div>
+</section>
+
+<!-- ============ HOST: REVEAL ============ -->
+<section id="view-host-reveal" class="screen hidden">
+  <span class="severity-tag" id="host-r-tag">—</span>
+  <div class="question-text" id="host-r-text" style="text-align:center;"></div>
+  <div class="options-grid" id="host-r-options" style="max-width:640px;"></div>
+  <div class="explanation" id="host-r-explanation" style="max-width:640px;"></div>
+  <button class="btn wide" style="max-width:360px; margin-top:24px;" onclick="hostNext()" id="host-r-next-btn">Siguiente pregunta</button>
+</section>
+
+<!-- ============ HOST: LEADERBOARD ============ -->
+<section id="view-host-leaderboard" class="screen hidden">
+  <div class="eyebrow" id="host-lb-eyebrow">Marcador</div>
+  <h2 class="title-xl">Clasificación</h2>
+  <div class="leader-list" id="host-lb-list" style="max-width:420px;"></div>
+  <button class="btn wide" style="max-width:360px; margin-top:28px;" onclick="hostContinueAfterLeaderboard()" id="host-lb-next-btn">Continuar</button>
+</section>
+
+<!-- ============ HOST: END ============ -->
+<section id="view-host-end" class="screen hidden">
+  <div class="eyebrow">Sesión finalizada</div>
+  <h2 class="title-xl">Resultados finales</h2>
+  <div class="leader-list" id="host-end-list" style="max-width:420px;"></div>
+  <div class="card" style="margin-top:24px; max-width:640px;">
+    <h3 style="font-size:16px; margin-bottom:10px;">Puntos clave GINA 2026</h3>
+    <div class="pill-row" style="justify-content:flex-start;">
+      <span class="pill">O₂ solo si SpO₂ &lt;92%</span>
+      <span class="pill">Meta SpO₂ hasta 95% (6–11 años)</span>
+      <span class="pill">Anafilaxia + asma: adrenalina primero</span>
+      <span class="pill">PRAM para severidad</span>
+      <span class="pill">Iniciar ICS controlador antes del alta</span>
+    </div>
+  </div>
+</section>
+
+<!-- ============ STUDENT: JOIN ============ -->
+<section id="view-student-join" class="screen hidden">
+  <div class="eyebrow">Unirse a la sesión</div>
+  <h2 class="title-xl">Ingresa el código</h2>
+  <div class="stack" style="max-width:340px; margin-top:24px;">
+    <input type="text" id="input-room-code" placeholder="Código de sala" maxlength="4">
+    <input type="text" id="input-name" placeholder="Tu nombre" maxlength="20" style="text-transform:none;">
+    <button class="btn wide" onclick="joinRoom()">Unirme</button>
+    <p id="join-error" class="subtitle" style="color:var(--red); display:none;"></p>
+  </div>
+</section>
+
+<!-- ============ STUDENT: WAITING ============ -->
+<section id="view-student-wait" class="screen hidden">
+  <div class="eyebrow">Conectado</div>
+  <h2 class="title-xl" id="student-wait-name">—</h2>
+  <p class="subtitle"><span class="waiting-dot"></span>Esperando a que el docente inicie la simulación…</p>
+</section>
+
+<!-- ============ STUDENT: CASE INTRO ============ -->
+<section id="view-student-case-intro" class="screen hidden">
+  <span class="severity-tag" id="student-case-tag">—</span>
+  <h2 class="title-xl" id="student-case-title" style="margin-top:14px; text-align:center;">—</h2>
+  <p class="subtitle">Lea el caso en la pantalla principal. Las preguntas aparecerán aquí.</p>
+</section>
+
+<!-- ============ STUDENT: QUESTION ============ -->
+<section id="view-student-question" class="screen hidden">
+  <div class="score-badge" id="student-score-badge">0 pts</div>
+  <div class="timer-bar"><div class="timer-fill" id="student-timer-fill"></div></div>
+  <div class="question-text" id="student-q-text" style="text-align:center;"></div>
+  <div class="options-grid" id="student-q-options"></div>
+</section>
+
+<!-- ============ STUDENT: ANSWERED / WAIT REVEAL ============ -->
+<section id="view-student-answered" class="screen hidden">
+  <div class="eyebrow">Respuesta enviada</div>
+  <h2 class="title-xl">Esperando a los demás…</h2>
+</section>
+
+<!-- ============ STUDENT: REVEAL ============ -->
+<section id="view-student-reveal" class="screen hidden">
+  <div id="student-r-result" class="severity-tag">—</div>
+  <div class="explanation" id="student-r-explanation" style="max-width:520px; margin-top:18px;"></div>
+</section>
+
+<!-- ============ STUDENT: LEADERBOARD ============ -->
+<section id="view-student-leaderboard" class="screen hidden">
+  <div class="eyebrow">Marcador</div>
+  <h2 class="title-xl" id="student-lb-position">—</h2>
+  <div class="score-badge" id="student-lb-score" style="position:static; margin-top:14px;">0 pts</div>
+</section>
+
+<!-- ============ STUDENT: END ============ -->
+<section id="view-student-end" class="screen hidden">
+  <div class="eyebrow">Simulación finalizada</div>
+  <h2 class="title-xl" id="student-end-headline">—</h2>
+  <div class="score-badge" id="student-end-score" style="position:static; margin-top:14px;">0 pts</div>
+</section>
+
+<!-- Firebase -->
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+<script>
+/* =========================================================================
+   CONFIGURACIÓN FIREBASE
+   Reemplace con su propio proyecto (puede reutilizar el mismo proyecto de
+   SimClin Neonatología y usar una ruta raíz distinta, como se hace abajo con
+   ROOM_PATH, para no chocar con esos datos).
+   ========================================================================= */
+const firebaseConfig = {
+  apiKey: "AIzaSyDyMFzhhq967jCkQLLFTCD1bUABFbDI07Y",
+  authDomain: "asma-gina-sim.firebaseapp.com",
+  databaseURL: "https://asma-gina-sim-default-rtdb.firebaseio.com", // VERIFIQUE esta línea en la consola de Realtime Database — puede cambiar si eligió una región distinta a EE.UU.
+  projectId: "asma-gina-sim",
+  storageBucket: "asma-gina-sim.firebasestorage.app",
+  messagingSenderId: "55868050486",
+  appId: "1:55868050486:web:a11c3dd31d34d54fa21c97",
+};
+firebase.initializeApp(firebaseConfig);
+const db = firebase.database();
+const ROOM_PATH = "asma_gina_2026"; // raíz distinta a "simclin" para no chocar con esos datos
+
+/* =========================================================================
+   CONTENIDO CLÍNICO — GINA 2026
+   ========================================================================= */
+const CASES = [
+  {
+    id: "leve",
+    tag: "Crisis leve-moderada · A",
+    tagClass: "sev-leve",
+    title: "Caso 1 · Niño de 8 años, dificultad respiratoria leve",
+    vitals: [
+      {label:"Edad", value:"8 años"},
+      {label:"FR", value:"28 /min"},
+      {label:"FC", value:"110 lpm"},
+      {label:"SpO₂ (aire)", value:"94%"},
+      {label:"Habla", value:"oraciones"},
+      {label:"Accesorios", value:"leve"},
+    ],
+    vignette: "Niño de 8 años con asma diagnosticada hace 2 años, buen control habitual. Consulta a urgencias por tos y dificultad respiratoria de 6 horas de evolución en el contexto de un cuadro viral de vías respiratorias altas. Habla en oraciones completas, prefiere estar sentado, no está agitado. Sibilancias espiratorias bilaterales a la auscultación, sin tiraje importante.",
+    questions: [
+      {
+        prompt: "Según los flujogramas GINA 2026 para 6–11 años, ¿cómo clasifica esta presentación?",
+        options: [
+          "Leve-moderada",
+          "Severa",
+          "Con riesgo vital",
+          "No es una exacerbación asmática"
+        ],
+        correct: 0,
+        explanation: "<b>Leve-moderada.</b> GINA 2026 simplificó la clasificación a tres categorías: leve-moderada, severa y con riesgo vital. Habla en oraciones, no agitado, SpO₂ 90–95% y uso solo leve de músculos accesorios son criterios de leve-moderada (no severa)."
+      },
+      {
+        prompt: "SpO₂ 94% con aire ambiente. ¿Administra oxígeno suplementario?",
+        options: [
+          "Sí, siempre en toda crisis asmática",
+          "No, solo se recomienda oxígeno si SpO₂ <92%",
+          "Sí, hasta alcanzar 100%",
+          "No, el oxígeno está contraindicado en asma"
+        ],
+        correct: 1,
+        explanation: "<b>No es necesario.</b> GINA 2026 bajó el umbral: solo se da oxígeno suplementario si SpO₂ <92%. Si se administra, la meta superior para 6–11 años es 95% (evitar hiperoxia)."
+      },
+      {
+        prompt: "¿Cuál es el tratamiento broncodilatador inicial de elección?",
+        options: [
+          "Salbutamol (SABA) por pMDI + espaciador o nebulizado, repetido cada 20 min en la primera hora",
+          "Corticoide inhalado en dosis alta como única terapia aguda",
+          "Salmeterol (LABA) de acción prolongada",
+          "Observación sin broncodilatador, solo antitérmico"
+        ],
+        correct: 0,
+        explanation: "<b>SABA repetido.</b> El pilar del tratamiento agudo sigue siendo salbutamol, preferiblemente por pMDI con espaciador (igual de eficaz que nebulizado y con menos efectos adversos), reevaluando la respuesta antes de repetir dosis."
+      },
+      {
+        prompt: "Tras la primera hora el niño mejora: habla en oraciones normales, SpO₂ 96%, FR 22/min. ¿Siguiente paso más apropiado?",
+        options: [
+          "Espaciar el SABA, reevaluar y preparar el alta si la mejoría se mantiene",
+          "Hospitalizar de inmediato por precaución",
+          "Iniciar antibiótico empírico",
+          "Duplicar la dosis de SABA cada 20 min indefinidamente"
+        ],
+        correct: 0,
+        explanation: "Buena respuesta clínica → se espacia el broncodilatador y se reevalúa antes del alta. No hay indicación de antibiótico (cuadro viral) ni de hospitalización con esta evolución."
+      },
+      {
+        prompt: "Antes de dar de alta a este paciente, ¿qué es indispensable garantizar?",
+        options: [
+          "Iniciar o reforzar un controlador con ICS, revisar técnica inhalatoria, entregar plan de acción escrito y programar seguimiento en pocos días",
+          "Nada adicional, ya que respondió bien al SABA",
+          "Indicar reposo estricto en cama por 2 semanas",
+          "Solicitar espirometría antes de poder darlo de alta, sin excepción"
+        ],
+        correct: 0,
+        explanation: "GINA 2026 enfatiza que toda exacerbación es una oportunidad para optimizar el control: iniciar/reiniciar ICS regular, revisar adherencia y técnica, dar plan de acción escrito y asegurar seguimiento cercano reduce el riesgo de recaída."
+      }
+    ]
+  },
+  {
+    id: "moderada",
+    tag: "Crisis leve-moderada · B (extremo moderado)",
+    tagClass: "sev-moderada",
+    title: "Caso 2 · Niña de 10 años, crisis progresiva de 2 días",
+    vitals: [
+      {label:"Edad", value:"10 años"},
+      {label:"FR", value:"32 /min"},
+      {label:"FC", value:"122 lpm"},
+      {label:"SpO₂ (aire)", value:"91%"},
+      {label:"Habla", value:"frases cortas"},
+      {label:"Accesorios", value:"moderado"},
+    ],
+    vignette: "Niña de 10 años con asma de control deficiente (usa salbutamol de rescate más de 2 veces por semana). Consulta por crisis de 2 días de evolución que ha empeorado pese al salbutamol domiciliario. Habla en frases cortas, prefiere sentarse, sibilancias generalizadas, uso moderado de músculos accesorios. No confusión ni somnolencia.",
+    questions: [
+      {
+        prompt: "¿Cómo clasifica esta presentación dentro del flujograma GINA 2026?",
+        options: [
+          "Leve-moderada, en el extremo más severo del espectro",
+          "Con riesgo vital",
+          "No cumple criterios de exacerbación",
+          "Severa, por el antecedente de mal control"
+        ],
+        correct: 0,
+        explanation: "Sigue siendo <b>leve-moderada</b>: habla en frases (no en palabras sueltas), no está agitada ni confundida, y no tiene tórax silente. El mal control previo es un factor de riesgo a considerar, pero no cambia la clasificación de severidad aguda por sí solo."
+      },
+      {
+        prompt: "SpO₂ 91% con aire ambiente. ¿Conducta con el oxígeno?",
+        options: [
+          "Administrar oxígeno controlado, con meta de saturación hasta 95% en este grupo etario",
+          "No dar oxígeno porque no está en riesgo vital",
+          "Dar oxígeno a alto flujo sin límite de meta",
+          "Dar oxígeno solo si baja de 85%"
+        ],
+        correct: 0,
+        explanation: "SpO₂ <92% sí cumple el umbral GINA 2026 para dar oxígeno suplementario. En niños de 6–11 años la meta superior es 95% (oxígeno controlado/titulado, no a ciegas)."
+      },
+      {
+        prompt: "Dado el antecedente de mal control y la severidad, ¿qué agrega al tratamiento inicial además del SABA repetido?",
+        options: [
+          "Corticoide oral sistémico de forma temprana, y considerar ipratropio si la respuesta es inadecuada",
+          "Solo observación, sin corticoide, porque es un cuadro leve-moderado",
+          "Antibiótico de amplio espectro de entrada",
+          "Suspender el SABA y usar únicamente ICS"
+        ],
+        correct: 0,
+        explanation: "En crisis con antecedente de mal control, uso frecuente de SABA o respuesta inicial insuficiente, GINA recomienda iniciar corticoide oral temprano (prednisolona/prednisona) y considerar ipratropio asociado al SABA si la respuesta no es completa."
+      },
+      {
+        prompt: "A la hora de tratamiento persiste con sibilancias moderadas, FR 30, SpO₂ 93% con oxígeno. ¿Siguiente paso?",
+        options: [
+          "Continuar SABA según respuesta, mantener corticoide, reevaluar horariamente y considerar observación prolongada u hospitalización si no mejora en 4 horas",
+          "Dar de alta de inmediato, ya mejoró la SpO₂",
+          "Suspender todo tratamiento y reevaluar en 24 horas",
+          "Intubar de forma preventiva"
+        ],
+        correct: 0,
+        explanation: "Respuesta parcial → se mantiene tratamiento activo con reevaluación frecuente. La necesidad persistente de SABA cada pocas horas es un criterio para prolongar observación u hospitalizar, no para el alta."
+      },
+      {
+        prompt: "Si finalmente mejora y se decide el alta, ¿qué debe abordarse específicamente por su historia de mal control?",
+        options: [
+          "Revisar adherencia, técnica inhalatoria y desencadenantes, además de ajustar el controlador (posible escalón superior) antes de irse a casa",
+          "Nada distinto a cualquier otro paciente",
+          "Suspender el ICS porque no ha estado funcionando",
+          "Indicar reposo escolar indefinido"
+        ],
+        correct: 0,
+        explanation: "El mal control crónico exige revisar por qué: adherencia, técnica, exposición a desencadenantes y comorbilidades, y probablemente ajustar el escalón de tratamiento de mantenimiento antes de repetir el ciclo de crisis."
+      }
+    ]
+  },
+  {
+    id: "severa",
+    tag: "Crisis severa / riesgo vital",
+    tagClass: "sev-severa",
+    title: "Caso 3 · Niño de 7 años, dificultad respiratoria súbita",
+    vitals: [
+      {label:"Edad", value:"7 años"},
+      {label:"FR", value:"38 /min"},
+      {label:"FC", value:"145 lpm"},
+      {label:"SpO₂ (aire)", value:"88%"},
+      {label:"Habla", value:"palabras sueltas"},
+      {label:"Tórax", value:"silente (1 lado)", flag:true},
+    ],
+    vignette: "Niño de 7 años, alergia alimentaria conocida a frutos secos, traído en camilla por sus padres con dificultad respiratoria severa de inicio súbito hace 1 hora, tras posible ingesta accidental en el colegio. Habla solo con palabras sueltas, sentado inclinado hacia adelante, agitado. Uso importante de músculos accesorios, tórax silente en un hemitórax. Además presenta habones cutáneos generalizados y edema labial.",
+    questions: [
+      {
+        prompt: "Con estos hallazgos, ¿qué reconoce en este paciente?",
+        options: [
+          "Signos de exacerbación asmática severa/con riesgo vital, concomitante con anafilaxia",
+          "Una crisis leve-moderada típica",
+          "Una reacción alérgica cutánea aislada, sin compromiso respiratorio significativo",
+          "Un cuadro puramente psicógeno (hiperventilación)"
+        ],
+        correct: 0,
+        explanation: "Habla en palabras sueltas, agitación, tórax silente y SpO₂ 88% son criterios de <b>severidad/riesgo vital</b>. Los habones y el edema labial, en el contexto de alergia alimentaria, indican <b>anafilaxia</b> concomitante — una combinación que GINA 2026 aborda explícitamente."
+      },
+      {
+        prompt: "¿Cuál debe ser la primera intervención inmediata?",
+        options: [
+          "Adrenalina intramuscular de inmediato, antes que los broncodilatadores",
+          "Salbutamol nebulizado en primer lugar, la adrenalina puede esperar",
+          "Antihistamínico oral como primera línea",
+          "Corticoide oral únicamente, sin adrenalina"
+        ],
+        correct: 0,
+        explanation: "GINA 2026 añadió explícitamente esta recomendación: cuando coexisten anafilaxia y asma, <b>se administra adrenalina primero</b> y luego los broncodilatadores. Retrasar la adrenalina en anafilaxia se asocia a peores desenlaces."
+      },
+      {
+        prompt: "SpO₂ 88% con aire ambiente. ¿Conducta con el oxígeno en este escenario de riesgo vital?",
+        options: [
+          "Administrar oxígeno para corregir la hipoxemia, sin retrasar por calcular metas exactas en la emergencia inmediata",
+          "No dar oxígeno porque el paciente no cumple el umbral de 92%",
+          "Esperar el resultado de gases arteriales antes de decidir",
+          "Dar oxígeno solo después de la adrenalina y el salbutamol"
+        ],
+        correct: 0,
+        explanation: "Con SpO₂ 88% (<92%) y signos de riesgo vital, corregir la hipoxemia es prioritario y se hace en paralelo a la adrenalina y el broncodilatador, no en secuencia estricta ni condicionado a exámenes."
+      },
+      {
+        prompt: "Tras la adrenalina, ¿qué incluye el manejo broncodilatador/antiinflamatorio de esta crisis severa?",
+        options: [
+          "SABA nebulizado continuo o frecuente + ipratropio + corticoide sistémico (IV si no tolera vía oral) + considerar sulfato de magnesio IV",
+          "Solo ICS inhalado en dosis alta, sin SABA",
+          "Salbutamol oral en jarabe, evitando la vía inhalada",
+          "Ningún broncodilatador adicional tras la adrenalina"
+        ],
+        correct: 0,
+        explanation: "En crisis severa se intensifica: SABA repetido/continuo + ipratropio asociado, corticoide sistémico temprano (IV si hay compromiso para tragar o riesgo vital), y sulfato de magnesio IV como terapia adyuvante en casos que no responden."
+      },
+      {
+        prompt: "El paciente persiste con tórax silente y ahora con disminución del nivel de conciencia. ¿Qué hace?",
+        options: [
+          "Activa manejo de emergencia/UCI pediátrica, alerta al equipo de reanimación y se prepara para posible vía aérea avanzada",
+          "Continúa observando en el mismo nivel de atención sin cambios",
+          "Da de alta con indicaciones para casa",
+          "Espera 2 horas más antes de escalar el manejo"
+        ],
+        correct: 0,
+        explanation: "Tórax silente + alteración del nivel de conciencia son signos de <b>riesgo vital inminente</b>: requieren escalar de inmediato a manejo de UCI, activar al equipo de reanimación y anticipar la posibilidad de intubación."
+      },
+      {
+        prompt: "Tras estabilización inicial, ¿cuál es la disposición apropiada?",
+        options: [
+          "Traslado a UCI pediátrica con monitorización continua; ningún alta desde urgencias en este escenario",
+          "Alta a casa con salbutamol de rescate",
+          "Observación en urgencias por 1 hora y alta si mejora la FR",
+          "Traslado a consulta externa de alergología en 1 mes, sin ingreso"
+        ],
+        correct: 0,
+        explanation: "Un paciente que presentó riesgo vital (tórax silente, hipoxemia severa, alteración de conciencia) requiere ingreso a UCI con monitorización continua, y posteriormente evaluación por alergología para el manejo futuro de la anafilaxia y el asma."
+      }
+    ]
+  },
+  {
+    id: "ambulatorio",
+    tag: "Manejo ambulatorio escalonado",
+    tagClass: "sev-ambulatorio",
+    title: "Módulo 4 · Ajuste de escalones de tratamiento (steps 1–5)",
+    vitals: [
+      {label:"Contexto", value:"consulta externa"},
+      {label:"Edad", value:"6–11 años"},
+      {label:"Enfoque", value:"control crónico"},
+    ],
+    vignette: "En este módulo no hay un único paciente: cada pregunta presenta una viñeta breve de control ambulatorio. Debe decidir en qué escalón (step) de tratamiento de mantenimiento debe ubicarse o ajustarse al paciente, según GINA 2026 para 6–11 años.",
+    questions: [
+      {
+        prompt: "Niño con síntomas de asma menos de 2 veces al mes, sin despertares nocturnos ni exacerbaciones. ¿Qué escalón corresponde?",
+        options: [
+          "Step 1 — terapia antiinflamatoria de rescate (ICS-formoterol a demanda) o ICS cada vez que use SABA",
+          "Step 3 — ICS-formoterol de mantenimiento y rescate (MART)",
+          "Step 5 — referir para terapia biológica",
+          "No requiere ningún tratamiento"
+        ],
+        correct: 0,
+        explanation: "Síntomas infrecuentes y sin exacerbaciones corresponden al <b>Step 1</b>. En 6–11 años, GINA 2026 respalda con más fuerza el uso de ICS-formoterol como reliever antiinflamatorio (AIR) en lugar de SABA solo."
+      },
+      {
+        prompt: "Niña con síntomas 2–3 veces por semana y un despertar nocturno en el último mes. ¿Escalón apropiado?",
+        options: [
+          "Step 2 — ICS diario en dosis baja, con SABA o AIR de rescate",
+          "Step 1 — solo rescate a demanda",
+          "Step 4 — dosis media de ICS-formoterol MART",
+          "Suspender todo tratamiento controlador"
+        ],
+        correct: 0,
+        explanation: "Síntomas más frecuentes (2–3 veces/semana) con algún despertar nocturno indican necesidad de <b>controlador diario</b>: ICS en dosis baja, manteniendo un reliever para el alivio de síntomas."
+      },
+      {
+        prompt: "Niño con síntomas diarios, despertar nocturno semanal y uso diario de SABA pese a ICS dosis baja bien usado. ¿Siguiente paso?",
+        options: [
+          "Step 3 — ICS-formoterol dosis baja en esquema de mantenimiento y rescate (MART)",
+          "Mantenerlo en Step 2 sin cambios",
+          "Suspender el ICS y usar solo LABA",
+          "Step 5 directamente, sin pasar por escalones intermedios"
+        ],
+        correct: 0,
+        explanation: "Con síntomas diarios y despertares pese a Step 2 bien adherido, se escala a <b>Step 3</b>: MART con ICS-formoterol en dosis baja, que sirve tanto de mantenimiento como de alivio."
+      },
+      {
+        prompt: "Adolescente en Step 3, con 2 exacerbaciones en el último año pese a adherencia y técnica inhalatoria confirmadas como adecuadas. ¿Qué hace antes de escalar?",
+        options: [
+          "Confirmar que no hay otra causa (comorbilidades, fenotipo, desencadenantes no controlados) y luego escalar a Step 4 con dosis media de ICS-formoterol MART",
+          "Escalar directamente a Step 5 sin más evaluación",
+          "Bajar a Step 2 porque las exacerbaciones no dependen del tratamiento",
+          "Cambiar a un antibiótico profiláctico"
+        ],
+        correct: 0,
+        explanation: "Antes de escalar siempre se descartan causas modificables (técnica, adherencia, comorbilidades como rinitis o reflujo, desencadenantes ambientales). Si ya están controladas y persisten exacerbaciones, se sube a <b>Step 4</b> (dosis media MART)."
+      },
+      {
+        prompt: "Paciente en Step 4, con exacerbaciones frecuentes, eosinofilia y sensibilización alérgica documentada, pese a buena adherencia. ¿Qué corresponde?",
+        options: [
+          "Referir a especialista para evaluación de terapia biológica add-on (Step 5)",
+          "Continuar igual, sin cambios",
+          "Suspender el ICS por la eosinofilia",
+          "Duplicar la dosis de SABA de rescate como única medida"
+        ],
+        correct: 0,
+        explanation: "Asma no controlada en Step 4 con evidencia de inflamación tipo 2 (eosinofilia, sensibilización alérgica) es indicación de referir a especialista para considerar <b>terapia biológica add-on en Step 5</b>."
+      }
+    ]
+  }
+];
+
+/* =========================================================================
+   ESTADO LOCAL
+   ========================================================================= */
+let role = null;          // 'host' | 'student'
+let roomCode = null;
+let myStudentId = null;
+let myName = null;
+let myScore = 0;
+let isHost = false;
+let roomRef = null;
+let questionTimer = null;
+let questionDeadline = null;
+const QUESTION_SECONDS = 25;
+let currentAnswerSelected = null;
+
+function goTo(id){
+  document.querySelectorAll('.screen').forEach(s=>s.classList.add('hidden'));
+  document.getElementById(id).classList.remove('hidden');
+}
+
+function genRoomCode(){
+  const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+  let out = "";
+  for(let i=0;i<4;i++) out += chars[Math.floor(Math.random()*chars.length)];
+  return out;
+}
+function genId(){ return 'u' + Math.random().toString(36).slice(2,10); }
+
+/* ---------------- HOST FLOW ---------------- */
+function createRoom(){
+  role = 'host'; isHost = true;
+  roomCode = genRoomCode();
+  roomRef = db.ref(`${ROOM_PATH}/${roomCode}`);
+  roomRef.set({
+    createdAt: Date.now(),
+    status: 'lobby',
+    caseIndex: 0,
+    questionIndex: -1,
+    students: {}
+  });
+  document.getElementById('host-room-code').textContent = roomCode;
+  goTo('view-host-lobby');
+  listenStudents();
+}
+
+function listenStudents(){
+  roomRef.child('students').on('value', snap=>{
+    const students = snap.val() || {};
+    const list = document.getElementById('host-student-list');
+    list.innerHTML = '';
+    const names = Object.values(students);
+    names.forEach(s=>{
+      const row = document.createElement('div');
+      row.className = 'pill';
+      row.style.textAlign='left';
+      row.textContent = s.name;
+      list.appendChild(row);
+    });
+    document.getElementById('btn-start-session').disabled = names.length === 0;
+  });
+}
+
+function startSession(){
+  roomRef.update({ status:'case-intro', caseIndex:0, questionIndex:-1 });
+  showHostCaseIntro(0);
+}
+
+function showHostCaseIntro(caseIdx){
+  const c = CASES[caseIdx];
+  document.getElementById('host-case-tag').textContent = c.tag;
+  document.getElementById('host-case-tag').className = 'severity-tag ' + c.tagClass;
+  document.getElementById('host-case-title').textContent = c.title;
+  document.getElementById('host-case-vignette').textContent = c.vignette;
+  const vitalsWrap = document.getElementById('host-case-vitals');
+  vitalsWrap.innerHTML = '';
+  c.vitals.forEach(v=>{
+    const el = document.createElement('div');
+    el.className = 'vital' + (v.flag ? ' flag' : '');
+    el.innerHTML = `<div class="label">${v.label}</div><div class="value mono">${v.value}</div>`;
+    vitalsWrap.appendChild(el);
+  });
+  roomRef.update({ status:'case-intro', caseIndex: caseIdx });
+  goTo('view-host-case-intro');
+}
+
+/* control explícito de progreso del host */
+let hostCaseIdx = 0;
+let hostQIdx = 0;
+
+function startSession(){
+  hostCaseIdx = 0; hostQIdx = 0;
+  roomRef.update({ status:'case-intro', caseIndex:0, questionIndex:-1 });
+  showHostCaseIntro(0);
+}
+function advanceToQuestion(){
+  hostQIdx = 0;
+  askQuestion(hostCaseIdx, 0);
+}
+
+function askQuestion(caseIdx, qIdx){
+  hostCaseIdx = caseIdx; hostQIdx = qIdx;
+  const c = CASES[caseIdx];
+  const q = c.questions[qIdx];
+  document.getElementById('host-q-room').textContent = roomCode;
+  document.getElementById('host-q-progress').textContent = `Caso ${caseIdx+1}/${CASES.length} · Pregunta ${qIdx+1}/${c.questions.length}`;
+  document.getElementById('host-q-tag').textContent = c.tag;
+  document.getElementById('host-q-tag').className = 'severity-tag ' + c.tagClass;
+  document.getElementById('host-q-text').textContent = q.prompt;
+
+  questionDeadline = Date.now() + QUESTION_SECONDS*1000;
+  roomRef.update({
+    status:'question',
+    caseIndex: caseIdx,
+    questionIndex: qIdx,
+    questionKey: `${caseIdx}_${qIdx}`,
+    questionDeadline: questionDeadline
+  });
+  roomRef.child(`answers/${caseIdx}_${qIdx}`).remove();
+
+  goTo('view-host-question');
+  runHostTimer();
+  listenAnswerCount(caseIdx, qIdx);
+}
+
+function runHostTimer(){
+  clearInterval(questionTimer);
+  const fill = document.getElementById('host-timer-fill');
+  questionTimer = setInterval(()=>{
+    const remaining = Math.max(0, questionDeadline - Date.now());
+    const pct = remaining / (QUESTION_SECONDS*1000);
+    fill.style.width = (pct*100)+'%';
+    fill.className = 'timer-fill' + (pct<0.3?' crit':pct<0.6?' warn':'');
+    if(remaining<=0){ clearInterval(questionTimer); }
+  }, 150);
+}
+
+function listenAnswerCount(caseIdx, qIdx){
+  roomRef.child(`answers/${caseIdx}_${qIdx}`).on('value', snap=>{
+    const n = snap.val() ? Object.keys(snap.val()).length : 0;
+    document.getElementById('host-q-answered-count').innerHTML = `<span class="waiting-dot"></span>${n} respuesta(s) recibidas…`;
+  });
+}
+
+function revealAnswer(){
+  clearInterval(questionTimer);
+  const c = CASES[hostCaseIdx];
+  const q = c.questions[hostQIdx];
+  roomRef.child(`answers/${hostCaseIdx}_${hostQIdx}`).off();
+
+  roomRef.child(`answers/${hostCaseIdx}_${hostQIdx}`).once('value', snap=>{
+    const answers = snap.val() || {};
+    // scoring: base 1000 pts scaled by remaining time fraction, min 300 if correct
+    roomRef.child('students').once('value', sSnap=>{
+      const students = sSnap.val() || {};
+      Object.keys(answers).forEach(sid=>{
+        const a = answers[sid];
+        if(a.optionIndex === q.correct){
+          const elapsed = a.ts - (questionDeadline - QUESTION_SECONDS*1000);
+          const frac = Math.max(0, Math.min(1, 1 - elapsed/(QUESTION_SECONDS*1000)));
+          const pts = Math.round(300 + frac*700);
+          const prevScore = (students[sid] && students[sid].score) || 0;
+          roomRef.child(`students/${sid}/score`).set(prevScore + pts);
+        }
+      });
+
+      document.getElementById('host-r-tag').textContent = c.tag;
+      document.getElementById('host-r-tag').className = 'severity-tag ' + c.tagClass;
+      document.getElementById('host-r-text').textContent = q.prompt;
+      const optWrap = document.getElementById('host-r-options');
+      optWrap.innerHTML = '';
+      q.options.forEach((opt,i)=>{
+        const div = document.createElement('div');
+        div.className = 'option-btn' + (i===q.correct ? ' correct' : '');
+        div.innerHTML = `<span class="key">${String.fromCharCode(65+i)}</span><span>${opt}</span>`;
+        optWrap.appendChild(div);
+      });
+      document.getElementById('host-r-explanation').innerHTML = q.explanation;
+
+      const isLastQ = hostQIdx === c.questions.length - 1;
+      document.getElementById('host-r-next-btn').textContent = isLastQ ? 'Ver clasificación' : 'Siguiente pregunta';
+
+      roomRef.update({ status:'reveal' });
+      goTo('view-host-reveal');
+    });
+  });
+}
+
+function hostNext(){
+  const c = CASES[hostCaseIdx];
+  const isLastQ = hostQIdx === c.questions.length - 1;
+  if(!isLastQ){
+    askQuestion(hostCaseIdx, hostQIdx+1);
+  } else {
+    showLeaderboard();
+  }
+}
+
+function showLeaderboard(){
+  roomRef.child('students').once('value', snap=>{
+    const students = snap.val() || {};
+    const arr = Object.values(students).sort((a,b)=> (b.score||0)-(a.score||0));
+    const list = document.getElementById('host-lb-list');
+    list.innerHTML = '';
+    arr.forEach((s,i)=>{
+      const row = document.createElement('div');
+      row.className = 'leader-row' + (i===0?' top1':'');
+      row.innerHTML = `<span class="rank mono">${i+1}</span><span class="name">${s.name}</span><span class="score mono">${s.score||0}</span>`;
+      list.appendChild(row);
+    });
+    const isLastCase = hostCaseIdx === CASES.length - 1;
+    document.getElementById('host-lb-eyebrow').textContent = isLastCase ? 'Marcador final' : `Fin del caso ${hostCaseIdx+1}`;
+    document.getElementById('host-lb-next-btn').textContent = isLastCase ? 'Ver resultados finales' : 'Siguiente caso';
+    roomRef.update({ status:'leaderboard' });
+    goTo('view-host-leaderboard');
+  });
+}
+
+function hostContinueAfterLeaderboard(){
+  const isLastCase = hostCaseIdx === CASES.length - 1;
+  if(isLastCase){
+    roomRef.child('students').once('value', snap=>{
+      const students = snap.val() || {};
+      const arr = Object.values(students).sort((a,b)=> (b.score||0)-(a.score||0));
+      const list = document.getElementById('host-end-list');
+      list.innerHTML = '';
+      arr.forEach((s,i)=>{
+        const row = document.createElement('div');
+        row.className = 'leader-row' + (i===0?' top1':'');
+        row.innerHTML = `<span class="rank mono">${i+1}</span><span class="name">${s.name}</span><span class="score mono">${s.score||0}</span>`;
+        list.appendChild(row);
+      });
+      roomRef.update({ status:'ended' });
+      goTo('view-host-end');
+    });
+  } else {
+    showHostCaseIntro(hostCaseIdx+1);
+  }
+}
+
+/* ---------------- STUDENT FLOW ---------------- */
+function joinRoom(){
+  const code = document.getElementById('input-room-code').value.trim().toUpperCase();
+  const name = document.getElementById('input-name').value.trim();
+  const errEl = document.getElementById('join-error');
+  errEl.style.display = 'none';
+  if(!code || !name){
+    errEl.textContent = 'Ingresa el código de sala y tu nombre.';
+    errEl.style.display='block';
+    return;
+  }
+  const testRef = db.ref(`${ROOM_PATH}/${code}`);
+  testRef.once('value', snap=>{
+    if(!snap.exists()){
+      errEl.textContent = 'No se encontró una sala con ese código.';
+      errEl.style.display='block';
+      return;
+    }
+    role = 'student'; isHost = false;
+    roomCode = code; myName = name; myStudentId = genId(); myScore = 0;
+    roomRef = testRef;
+    roomRef.child(`students/${myStudentId}`).set({ name: myName, score: 0 });
+    document.getElementById('student-wait-name').textContent = myName;
+    goTo('view-student-wait');
+    listenRoomStatusAsStudent();
+  });
+}
+
+function listenRoomStatusAsStudent(){
+  roomRef.on('value', snap=>{
+    const data = snap.val();
+    if(!data) return;
+    const status = data.status;
+
+    if(status === 'case-intro'){
+      const c = CASES[data.caseIndex];
+      document.getElementById('student-case-tag').textContent = c.tag;
+      document.getElementById('student-case-tag').className = 'severity-tag ' + c.tagClass;
+      document.getElementById('student-case-title').textContent = c.title;
+      goTo('view-student-case-intro');
+    }
+
+    if(status === 'question'){
+      const c = CASES[data.caseIndex];
+      const q = c.questions[data.questionIndex];
+      const qKey = data.questionKey;
+      currentAnswerSelected = null;
+
+      // check if I already answered this question
+      roomRef.child(`answers/${qKey}/${myStudentId}`).once('value', ansSnap=>{
+        if(ansSnap.exists()){
+          goTo('view-student-answered');
+        } else {
+          document.getElementById('student-q-text').textContent = q.prompt;
+          const optWrap = document.getElementById('student-q-options');
+          optWrap.innerHTML = '';
+          q.options.forEach((opt,i)=>{
+            const btn = document.createElement('button');
+            btn.className = 'option-btn';
+            btn.innerHTML = `<span class="key">${String.fromCharCode(65+i)}</span><span>${opt}</span>`;
+            btn.onclick = ()=> submitAnswer(qKey, i);
+            optWrap.appendChild(btn);
+          });
+          document.getElementById('student-score-badge').textContent = `${myScore} pts`;
+          goTo('view-student-question');
+          runStudentTimer(data.questionDeadline);
+        }
+      });
+    }
+
+    if(status === 'reveal'){
+      clearInterval(questionTimer);
+      const c = CASES[data.caseIndex];
+      const q = c.questions[data.questionIndex];
+      const qKey = data.questionKey;
+      roomRef.child(`answers/${qKey}/${myStudentId}`).once('value', ansSnap=>{
+        const a = ansSnap.val();
+        const wasCorrect = a && a.optionIndex === q.correct;
+        const resultEl = document.getElementById('student-r-result');
+        resultEl.textContent = a ? (wasCorrect ? '✓ Correcto' : '✗ Incorrecto') : 'No respondiste a tiempo';
+        resultEl.className = 'severity-tag ' + (wasCorrect ? 'sev-leve' : 'sev-severa');
+        document.getElementById('student-r-explanation').innerHTML = q.explanation;
+        goTo('view-student-reveal');
+      });
+      roomRef.child(`students/${myStudentId}/score`).once('value', sSnap=>{
+        myScore = sSnap.val() || 0;
+      });
+    }
+
+    if(status === 'leaderboard'){
+      roomRef.child('students').once('value', snap2=>{
+        const students = snap2.val() || {};
+        const arr = Object.entries(students).sort((a,b)=> (b[1].score||0)-(a[1].score||0));
+        const myRank = arr.findIndex(([id])=> id===myStudentId) + 1;
+        myScore = (students[myStudentId] && students[myStudentId].score) || 0;
+        document.getElementById('student-lb-position').textContent = `Vas en el puesto ${myRank} de ${arr.length}`;
+        document.getElementById('student-lb-score').textContent = `${myScore} pts`;
+        goTo('view-student-leaderboard');
+      });
+    }
+
+    if(status === 'ended'){
+      roomRef.child('students').once('value', snap2=>{
+        const students = snap2.val() || {};
+        const arr = Object.entries(students).sort((a,b)=> (b[1].score||0)-(a[1].score||0));
+        const myRank = arr.findIndex(([id])=> id===myStudentId) + 1;
+        myScore = (students[myStudentId] && students[myStudentId].score) || 0;
+        document.getElementById('student-end-headline').textContent = myRank===1 ? '¡Terminaste primero!' : `Terminaste en el puesto ${myRank} de ${arr.length}`;
+        document.getElementById('student-end-score').textContent = `${myScore} pts`;
+        goTo('view-student-end');
+      });
+    }
+  });
+}
+
+function submitAnswer(qKey, optionIndex){
+  currentAnswerSelected = optionIndex;
+  roomRef.child(`answers/${qKey}/${myStudentId}`).set({ optionIndex, ts: Date.now() });
+  goTo('view-student-answered');
+}
+
+function runStudentTimer(deadline){
+  clearInterval(questionTimer);
+  const fill = document.getElementById('student-timer-fill');
+  questionTimer = setInterval(()=>{
+    const remaining = Math.max(0, deadline - Date.now());
+    const pct = remaining / (QUESTION_SECONDS*1000);
+    fill.style.width = (pct*100)+'%';
+    fill.className = 'timer-fill' + (pct<0.3?' crit':pct<0.6?' warn':'');
+    if(remaining<=0){ clearInterval(questionTimer); }
+  }, 150);
+}
+</script>
+</body>
+</html>
